@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta de Pendentes — Sorter</title>
+
+<link rel="stylesheet" href="style.css?v=1">
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+</head>
+<body>
+
+<!-- ================================= -->
+<!-- HEADER -->
+<!-- ================================= -->
+
+<header class="topo">
+
+    <div class="topo-esquerda">
+
+        <h1>
+
+            <div class="logo-box">🔎</div>
+
+            CONSULTA DE <span>PENDENTES</span>
+
+        </h1>
+
+        <p>Comercial Zaffari • CD-107 • Bipagem de Código de Barras — Sorter</p>
+
+    </div>
+
+    <div class="acoes">
+
+        <button
+        id="btnLimpar"
+        class="btn-tema"
+        onclick="limparSessao()">
+
+            ♻️ Limpar Sessão
+
+        </button>
+
+    </div>
+
+</header>
+
+<!-- ================================= -->
+<!-- UPLOADS -->
+<!-- ================================= -->
+
+<section class="uploads">
+
+    <!-- BANCO DE DADOS -->
+
+    <div class="upload-card">
+
+        <div class="upload-icon">🗂️</div>
+
+        <h3>Banco de Dados</h3>
+
+        <span>Código de barras (DUN/EAN) → código reduzido</span>
+
+        <label for="arquivoBanco" class="upload-btn">
+            📂 Selecionar Arquivo
+        </label>
+
+        <input
+        type="file"
+        id="arquivoBanco"
+        accept=".xlsx,.xls"
+        class="file-hidden"
+        onchange="carregarBanco(this.files[0])">
+
+        <div id="statusBanco" class="arquivo-selecionado">
+            Nenhum arquivo carregado
+        </div>
+
+        <div class="upload-loading" id="loadingBanco">
+            <div class="upload-loading-fill" id="loadingFillBanco"></div>
+        </div>
+
+    </div>
+
+    <!-- CONSULTA DE PENDENTES (VELOX) -->
+
+    <div class="upload-card">
+
+        <div class="upload-icon">📋</div>
+
+        <h3>Consulta de Pendentes</h3>
+
+        <span>Velox — Invent System (volumes pendentes)</span>
+
+        <label for="arquivoPendentes" class="upload-btn">
+            📂 Selecionar Arquivo
+        </label>
+
+        <input
+        type="file"
+        id="arquivoPendentes"
+        accept=".csv,.txt"
+        class="file-hidden"
+        onchange="carregarPendentes(this.files[0])">
+
+        <div id="statusPendentes" class="arquivo-selecionado">
+            Nenhum arquivo carregado
+        </div>
+
+        <div class="upload-loading" id="loadingPendentes">
+            <div class="upload-loading-fill" id="loadingFillPendentes"></div>
+        </div>
+
+    </div>
+
+</section>
+
+<!-- ================================= -->
+<!-- KPIs -->
+<!-- ================================= -->
+
+<section class="kpis kpis-scan">
+
+    <div class="kpi kpi-total">
+        <div class="kpi-icon">📦</div>
+        <span>Bipados</span>
+        <h2 id="kpiTotal">0</h2>
+    </div>
+
+    <div class="kpi kpi-pendente">
+        <div class="kpi-icon">⛔</div>
+        <span>Com Pendência</span>
+        <h2 id="kpiPendente">0</h2>
+    </div>
+
+    <div class="kpi kpi-ok">
+        <div class="kpi-icon">✅</div>
+        <span>Sem Pendência</span>
+        <h2 id="kpiOk">0</h2>
+    </div>
+
+    <div class="kpi kpi-nao-encontrado">
+        <div class="kpi-icon">❔</div>
+        <span>Não Cadastrado</span>
+        <h2 id="kpiNaoEncontrado">0</h2>
+    </div>
+
+</section>
+
+<!-- ================================= -->
+<!-- PAINEL DE BIPAGEM -->
+<!-- ================================= -->
+
+<section class="scan-panel" id="scanPanel">
+
+    <div class="scan-input-wrap">
+
+        <span class="scan-input-icone">📡</span>
+
+        <input
+        type="text"
+        id="inputScan"
+        class="scan-input"
+        placeholder="Bipe o código de barras aqui..."
+        autocomplete="off"
+        disabled>
+
+    </div>
+
+    <p class="scan-dica" id="scanDica">
+        Carregue os dois arquivos acima pra começar a bipar.
+    </p>
+
+</section>
+
+<!-- ================================= -->
+<!-- RESULTADO -->
+<!-- ================================= -->
+
+<section class="resultado-card" id="resultadoCard">
+
+    <div class="resultado-vazio" id="resultadoVazio">
+        📡 Aguardando leitura...
+    </div>
+
+</section>
+
+<!-- ================================= -->
+<!-- HISTÓRICO -->
+<!-- ================================= -->
+
+<section class="historico-card">
+
+    <h3>🕓 Últimas Consultas</h3>
+
+    <div class="historico-scroll">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Hora</th>
+                    <th>Código Bipado</th>
+                    <th>Cód. Reduzido</th>
+                    <th>Produto</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+
+            <tbody id="historicoBody">
+
+                <tr id="historicoVazio">
+                    <td colspan="5" class="historico-vazio-linha">
+                        Nenhuma leitura ainda.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+<script src="app.js?v=1"></script>
+
+</body>
+</html>
