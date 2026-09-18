@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consulta de Pendentes — Sorter</title>
 
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -142,12 +142,6 @@
         <h2 id="kpiOk">0</h2>
     </div>
 
-    <div class="kpi kpi-nao-encontrado">
-        <div class="kpi-icon">❔</div>
-        <span>Não Cadastrado</span>
-        <h2 id="kpiNaoEncontrado">0</h2>
-    </div>
-
 </section>
 
 <!-- ================================= -->
@@ -167,6 +161,14 @@
         placeholder="Bipe o código de barras aqui..."
         autocomplete="off"
         disabled>
+
+        <label class="scan-toggle-digitar" for="chkDigitarLivre">
+            <input
+            type="checkbox"
+            id="chkDigitarLivre"
+            onchange="alternarModoDigitacao(this.checked)">
+            <span>⌨️ Digitar (Enter busca)</span>
+        </label>
 
     </div>
 
@@ -316,7 +318,7 @@
 
 <div id="areaImpressao" class="area-impressao"></div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 
 </body>
 </html>

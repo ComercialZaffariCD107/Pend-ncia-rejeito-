@@ -432,7 +432,7 @@ body{
 
     display:grid;
 
-    grid-template-columns:repeat(4,1fr);
+    grid-template-columns:repeat(3,1fr);
 
     gap:16px;
 
@@ -566,6 +566,8 @@ body{
 
     align-items:center;
 
+    flex-wrap:wrap;
+
     gap:14px;
 
     background:var(--surface-2);
@@ -617,6 +619,90 @@ body{
 .scan-input:disabled{
 
     cursor:not-allowed;
+
+}
+
+.scan-input-erro{
+
+    color:var(--red) !important;
+
+    animation:scanErroFlash .35s ease;
+
+}
+
+@keyframes scanErroFlash{
+
+    0%{ text-shadow:0 0 0 transparent; }
+    30%{ text-shadow:0 0 12px color-mix(in srgb, var(--red) 60%, transparent); }
+    100%{ text-shadow:0 0 0 transparent; }
+
+}
+
+.scan-input-wrap:has(.scan-input-erro){
+
+    border-color:var(--red);
+
+    background:color-mix(in srgb, var(--red) 6%, var(--surface-2));
+
+}
+
+.scan-toggle-digitar{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:7px;
+
+    padding:8px 14px;
+
+    border-radius:20px;
+
+    border:1px solid var(--border-light);
+
+    background:var(--surface);
+
+    cursor:pointer;
+
+    user-select:none;
+
+    font-size:.76rem;
+
+    color:var(--muted);
+
+    white-space:nowrap;
+
+    transition:.2s;
+
+}
+
+.scan-toggle-digitar:hover{
+
+    border-color:var(--amber);
+
+}
+
+.scan-toggle-digitar input{
+
+    accent-color:var(--amber);
+
+    width:15px;
+
+    height:15px;
+
+    cursor:pointer;
+
+}
+
+.scan-toggle-digitar:has(input:checked){
+
+    border-color:var(--amber);
+
+    background:color-mix(in srgb, var(--amber) 12%, var(--surface));
+
+    color:var(--text);
+
+    font-weight:600;
 
 }
 

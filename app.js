@@ -14,8 +14,7 @@ let pendentesCarregado = false;
 const contadores = {
     total: 0,
     pendente: 0,
-    ok: 0,
-    naoEncontrado: 0
+    ok: 0
 };
 
 // paleteAtual: itens bipados desde a última vez que um palete foi
@@ -348,15 +347,20 @@ function verificarProntoParaBipar(){
 
 const inputScan = document.getElementById("inputScan");
 
-// Bipagem automática: o leitor sem fio "digita" tudo em poucos
-// milissegundos e depois para. A cada tecla reinicia um cronômetro
-// curto; quando o campo fica esse tempinho sem receber nada, dispara
-// a busca sozinho — sem precisar de Enter. Isso também funciona pra
-// digitação manual (só demora um pouquinho mais pra disparar).
+// Bipagem automática (padrão): o leitor sem fio "digita" tudo em
+// poucos milissegundos e depois para. A cada tecla reinicia um
+// cronômetro curto; quando o campo fica esse tempinho sem receber
+// nada, dispara a busca sozinho — sem precisar de Enter.
+//
+// Modo "Digitar" (opcional, pelo checkbox ao lado do campo): desliga
+// o disparo automático — só busca quando aperta Enter. Útil pra
+// digitar o código manualmente sem disparar buscas no meio da
+// digitação (código incompleto vira leitura errada).
 
 const SCAN_DEBOUNCE_MS = 120;
 
 let scanTimer = null;
+let modoDigitacaoLivre = false;
 
 function dispararLeitura(){
 
@@ -377,15 +381,15 @@ function dispararLeitura(){
 
 inputScan.addEventListener("input", ()=>{
 
+    if(modoDigitacaoLivre) return; // só busca no Enter
+
     if(scanTimer) clearTimeout(scanTimer);
 
     scanTimer = setTimeout(dispararLeitura, SCAN_DEBOUNCE_MS);
 
 });
 
-// Enter continua funcionando — dispara na hora, sem esperar o
-// cronômetro (útil pra digitação manual ou leitores configurados
-// pra mandar Enter no final).
+// Enter sempre funciona — dispara na hora, nos dois modos.
 
 inputScan.addEventListener("keydown", (e)=>{
 
@@ -413,15 +417,55 @@ inputScan.addEventListener("blur", ()=>{
 
 });
 
+function alternarModoDigitacao(ativo){
+
+    modoDigitacaoLivre = ativo;
+
+    if(scanTimer){
+        clearTimeout(scanTimer);
+        scanTimer = null;
+    }
+
+    inputScan.placeholder = ativo
+        ? "Digite o código e aperte Enter..."
+        : "Bipe o código de barras aqui...";
+
+    if(!inputScan.disabled) inputScan.focus();
+
+}
+
+// Aviso visual rápido (sem gravar nada) quando o código bipado não
+// existe no Banco de Dados carregado.
+
+function sinalizarCodigoNaoCadastrado(){
+
+    inputScan.classList.add("scan-input-erro");
+
+    setTimeout(()=> inputScan.classList.remove("scan-input-erro"), 350);
+
+}
+
 function processarLeitura(codigoBipado){
 
     codigoBipado = codigoBipado.replace(/\D/g, "").trim();
 
     if(!codigoBipado) return;
 
-    contadores.total++;
-
     const item = bancoMap.get(codigoBipado);
+
+    // Código não cadastrado no Banco de Dados: ignora por completo —
+    // não conta no KPI, não entra no histórico nem no palete. Só um
+    // sinal visual rápido no campo pra avisar que não achou nada.
+
+    if(!item){
+
+        sinalizarCodigoNaoCadastrado();
+
+        return;
+
+    }
+
+    contadores.total++;
 
     const agora = new Date();
 
@@ -429,26 +473,7 @@ function processarLeitura(codigoBipado){
 
     let registro;
 
-    if(!item){
-
-        contadores.naoEncontrado++;
-
-        registro = {
-            hora,
-            codigoBipado,
-            codigoReduzido: "—",
-            produto: "Não cadastrado no banco de dados",
-            tipo: "—",
-            status: "nao-encontrado",
-            pendencias: []
-        };
-
-        mostrarResultado({
-            status: "nao-encontrado",
-            codigoBipado
-        });
-
-    }else{
+    {
 
         const pendencias = pendentesMap.get(item.codigo) || [];
 
@@ -512,28 +537,6 @@ function processarLeitura(codigoBipado){
 function mostrarResultado({ status, codigoBipado, item, pendencias }){
 
     const card = document.getElementById("resultadoCard");
-
-    if(status === "nao-encontrado"){
-
-        card.innerHTML = `
-            <div class="resultado-conteudo status-nao-encontrado">
-                <div class="resultado-topo">
-                    <div class="resultado-produto">
-                        <h2>Código não cadastrado</h2>
-                        <p>Bipado: ${codigoBipado}</p>
-                    </div>
-                    <div class="resultado-selo">❔ Não Encontrado</div>
-                </div>
-                <p style="color:var(--muted); font-size:.85rem;">
-                    Esse código de barras não existe no Banco de Dados carregado.
-                    Confira se bipou certo ou se o cadastro está atualizado.
-                </p>
-            </div>
-        `;
-
-        return;
-
-    }
 
     if(status === "ok"){
 
@@ -610,8 +613,7 @@ function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, statu
 
     const tagInfo = {
         "pendente": { classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` },
-        "ok": { classe:"tag-ok", texto:"✅ OK" },
-        "nao-encontrado": { classe:"tag-nao-encontrado", texto:"❔ Não Cadastrado" }
+        "ok": { classe:"tag-ok", texto:"✅ OK" }
     }[status];
 
     const tr = document.createElement("tr");
@@ -671,8 +673,7 @@ function renderizarPalete(){
 
     const tagInfo = {
         "pendente": (qtd) => ({ classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` }),
-        "ok": () => ({ classe:"tag-ok", texto:"✅ OK" }),
-        "nao-encontrado": () => ({ classe:"tag-nao-encontrado", texto:"❔ Não Cadastrado" })
+        "ok": () => ({ classe:"tag-ok", texto:"✅ OK" })
     };
 
     tbody.innerHTML = paleteAtual.itens.map((it, idx) => {
@@ -751,8 +752,7 @@ function gerarImpressaoPalete(){
 
     const statusInfo = {
         "pendente": (qtd) => ({ classe:"imp-pendente", borda:"imp-borda-pendente", texto:`⛔ PENDENTE (${qtd})` }),
-        "ok": () => ({ classe:"imp-ok", borda:"imp-borda-ok", texto:"✅ SEM PENDÊNCIA" }),
-        "nao-encontrado": () => ({ classe:"imp-nao-encontrado", borda:"imp-borda-nao-encontrado", texto:"❔ NÃO CADASTRADO" })
+        "ok": () => ({ classe:"imp-ok", borda:"imp-borda-ok", texto:"✅ SEM PENDÊNCIA" })
     };
 
     let totalPendencias = 0;
@@ -843,7 +843,6 @@ function atualizarKpis(){
     document.getElementById("kpiTotal").textContent = contadores.total;
     document.getElementById("kpiPendente").textContent = contadores.pendente;
     document.getElementById("kpiOk").textContent = contadores.ok;
-    document.getElementById("kpiNaoEncontrado").textContent = contadores.naoEncontrado;
 
 }
 
@@ -856,7 +855,6 @@ function limparSessao(){
     contadores.total = 0;
     contadores.pendente = 0;
     contadores.ok = 0;
-    contadores.naoEncontrado = 0;
 
     atualizarKpis();
 
