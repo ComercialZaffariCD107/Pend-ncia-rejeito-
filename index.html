@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consulta de Pendentes — Sorter</title>
 
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -177,6 +177,59 @@
 </section>
 
 <!-- ================================= -->
+<!-- PALETE ATUAL -->
+<!-- ================================= -->
+
+<section class="palete-card">
+
+    <div class="palete-cabecalho">
+
+        <div class="palete-titulo">
+            <h3>📦 Palete Atual — Nº <span id="paleteNumero">1</span></h3>
+            <span class="palete-sub"><span id="paleteContagem">0</span> item(ns) bipado(s) neste palete</span>
+        </div>
+
+        <button
+        id="btnFecharPalete"
+        class="btn-fechar-palete"
+        onclick="fecharPalete()"
+        disabled>
+            🖨️ Fechar Palete
+        </button>
+
+    </div>
+
+    <div class="historico-scroll">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Hora</th>
+                    <th>Código Bipado</th>
+                    <th>Produto</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+
+            <tbody id="paleteBody">
+
+                <tr id="paleteVazio">
+                    <td colspan="5" class="historico-vazio-linha">
+                        Nenhum item bipado neste palete ainda.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+<!-- ================================= -->
 <!-- RESULTADO -->
 <!-- ================================= -->
 
@@ -226,7 +279,44 @@
 
 </section>
 
-<script src="app.js?v=1"></script>
+<!-- ================================= -->
+<!-- MODAL — FECHAR / IMPRIMIR PALETE -->
+<!-- ================================= -->
+
+<div class="modal-overlay" id="modalImprimir">
+
+    <div class="modal-caixa">
+
+        <h3>Palete Nº <span id="modalPaleteNumero">1</span> fechado</h3>
+
+        <p>
+            <span id="modalPaleteContagem">0</span> item(ns) bipado(s) neste palete.
+            Deseja imprimir o romaneio?
+        </p>
+
+        <div class="modal-acoes">
+
+            <button class="btn-modal btn-modal-nao" onclick="confirmarImpressao(false)">
+                Não
+            </button>
+
+            <button class="btn-modal btn-modal-sim" onclick="confirmarImpressao(true)">
+                🖨️ Sim, imprimir
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================================= -->
+<!-- ÁREA DE IMPRESSÃO (só aparece no papel) -->
+<!-- ================================= -->
+
+<div id="areaImpressao" class="area-impressao"></div>
+
+<script src="app.js?v=2"></script>
 
 </body>
 </html>

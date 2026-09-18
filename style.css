@@ -841,6 +841,358 @@ body{
 /* HISTÓRICO */
 /* ================================= */
 
+/* ================================= */
+/* PALETE ATUAL */
+/* ================================= */
+
+.palete-card{
+
+    background:var(--surface);
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius-lg);
+
+    padding:22px 24px;
+
+    margin-bottom:24px;
+
+    border-left:4px solid var(--amber);
+
+}
+
+.palete-cabecalho{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+    gap:14px;
+
+    margin-bottom:16px;
+
+}
+
+.palete-titulo h3{
+
+    font-family:var(--font-display);
+
+    font-size:1rem;
+
+    letter-spacing:.03em;
+
+    text-transform:uppercase;
+
+    color:var(--text);
+
+}
+
+.palete-sub{
+
+    display:block;
+
+    margin-top:4px;
+
+    font-size:.8rem;
+
+    color:var(--muted);
+
+}
+
+.btn-fechar-palete{
+
+    padding:12px 20px;
+
+    border-radius:var(--radius);
+
+    font-weight:700;
+
+    font-size:.78rem;
+
+    letter-spacing:.05em;
+
+    text-transform:uppercase;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+    font-family:var(--font-body);
+
+    background:var(--amber);
+
+    border:1px solid var(--amber);
+
+    color:#2A1800;
+
+    white-space:nowrap;
+
+}
+
+.btn-fechar-palete:hover:not(:disabled){
+
+    filter:brightness(1.08);
+
+    transform:translateY(-2px);
+
+}
+
+.btn-fechar-palete:disabled{
+
+    background:var(--surface-2);
+
+    border-color:var(--border);
+
+    color:var(--muted);
+
+    cursor:not-allowed;
+
+}
+
+/* ================================= */
+/* MODAL — FECHAR / IMPRIMIR PALETE */
+/* ================================= */
+
+.modal-overlay{
+
+    display:none;
+
+    position:fixed;
+
+    inset:0;
+
+    background:color-mix(in srgb, var(--navy-1) 55%, transparent);
+
+    z-index:100;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:20px;
+
+}
+
+.modal-overlay.aberto{
+
+    display:flex;
+
+}
+
+.modal-caixa{
+
+    background:var(--surface);
+
+    border-radius:var(--radius-lg);
+
+    padding:28px 30px;
+
+    max-width:420px;
+
+    width:100%;
+
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+
+}
+
+.modal-caixa h3{
+
+    font-family:var(--font-display);
+
+    font-size:1.1rem;
+
+    color:var(--text);
+
+    margin-bottom:10px;
+
+}
+
+.modal-caixa p{
+
+    font-size:.88rem;
+
+    color:var(--muted);
+
+    line-height:1.5;
+
+    margin-bottom:22px;
+
+}
+
+.modal-acoes{
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:10px;
+
+}
+
+.btn-modal{
+
+    padding:11px 18px;
+
+    border-radius:var(--radius);
+
+    font-weight:700;
+
+    font-size:.78rem;
+
+    letter-spacing:.03em;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+    font-family:var(--font-body);
+
+    border:1px solid var(--border-light);
+
+}
+
+.btn-modal-nao{
+
+    background:var(--surface-2);
+
+    color:var(--text);
+
+}
+
+.btn-modal-nao:hover{
+
+    background:var(--border);
+
+}
+
+.btn-modal-sim{
+
+    background:var(--amber);
+
+    border-color:var(--amber);
+
+    color:#2A1800;
+
+}
+
+.btn-modal-sim:hover{
+
+    filter:brightness(1.08);
+
+}
+
+/* ================================= */
+/* ÁREA DE IMPRESSÃO */
+/* ================================= */
+
+.area-impressao{
+
+    display:none;
+
+}
+
+@media print{
+
+    body *{
+
+        visibility:hidden;
+
+    }
+
+    .area-impressao,
+    .area-impressao *{
+
+        visibility:visible;
+
+    }
+
+    .area-impressao{
+
+        display:block;
+
+        position:absolute;
+
+        top:0;
+
+        left:0;
+
+        width:100%;
+
+        padding:0;
+
+        font-family:var(--font-body);
+
+        color:#000;
+
+    }
+
+    .impressao-cabecalho{
+
+        margin-bottom:16px;
+
+    }
+
+    .impressao-cabecalho h1{
+
+        font-family:var(--font-display);
+
+        font-size:1.1rem;
+
+    }
+
+    .impressao-cabecalho h2{
+
+        font-family:var(--font-display);
+
+        font-size:1rem;
+
+        margin-top:2px;
+
+    }
+
+    .impressao-cabecalho p{
+
+        font-size:.78rem;
+
+        color:#333;
+
+        margin-top:4px;
+
+    }
+
+    .impressao-tabela{
+
+        width:100%;
+
+        border-collapse:collapse;
+
+    }
+
+    .impressao-tabela th,
+    .impressao-tabela td{
+
+        border:1px solid #999;
+
+        padding:6px 8px;
+
+        font-size:.72rem;
+
+        text-align:left;
+
+    }
+
+    .impressao-tabela th{
+
+        background:#EEE;
+
+    }
+
+}
+
 .historico-card{
 
     background:var(--surface);

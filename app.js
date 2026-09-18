@@ -18,6 +18,14 @@ const contadores = {
     naoEncontrado: 0
 };
 
+// paleteAtual: itens bipados desde a última vez que um palete foi
+// fechado. Cada item: { hora, codigoBipado, codigoReduzido, produto,
+// tipo, status, pendencias }
+let paleteAtual = {
+    numero: 1,
+    itens: []
+};
+
 // =====================================
 // DECODIFICAÇÃO DE TEXTO (TXT/CSV)
 // =====================================
@@ -301,15 +309,52 @@ function verificarProntoParaBipar(){
 
 const inputScan = document.getElementById("inputScan");
 
+// Bipagem automática: o leitor sem fio "digita" tudo em poucos
+// milissegundos e depois para. A cada tecla reinicia um cronômetro
+// curto; quando o campo fica esse tempinho sem receber nada, dispara
+// a busca sozinho — sem precisar de Enter. Isso também funciona pra
+// digitação manual (só demora um pouquinho mais pra disparar).
+
+const SCAN_DEBOUNCE_MS = 120;
+
+let scanTimer = null;
+
+function dispararLeitura(){
+
+    if(scanTimer){
+        clearTimeout(scanTimer);
+        scanTimer = null;
+    }
+
+    const valor = inputScan.value;
+
+    if(valor.trim().length === 0) return;
+
+    processarLeitura(valor);
+
+    inputScan.value = "";
+
+}
+
+inputScan.addEventListener("input", ()=>{
+
+    if(scanTimer) clearTimeout(scanTimer);
+
+    scanTimer = setTimeout(dispararLeitura, SCAN_DEBOUNCE_MS);
+
+});
+
+// Enter continua funcionando — dispara na hora, sem esperar o
+// cronômetro (útil pra digitação manual ou leitores configurados
+// pra mandar Enter no final).
+
 inputScan.addEventListener("keydown", (e)=>{
 
     if(e.key === "Enter"){
 
         e.preventDefault();
 
-        processarLeitura(inputScan.value);
-
-        inputScan.value = "";
+        dispararLeitura();
 
     }
 
@@ -343,70 +388,79 @@ function processarLeitura(codigoBipado){
 
     const hora = agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
 
+    let registro;
+
     if(!item){
 
         contadores.naoEncontrado++;
+
+        registro = {
+            hora,
+            codigoBipado,
+            codigoReduzido: "—",
+            produto: "Não cadastrado no banco de dados",
+            tipo: "—",
+            status: "nao-encontrado",
+            pendencias: []
+        };
 
         mostrarResultado({
             status: "nao-encontrado",
             codigoBipado
         });
 
-        registrarHistorico({
-            hora,
-            codigoBipado,
-            codigoReduzido: "—",
-            produto: "Não cadastrado no banco de dados",
-            status: "nao-encontrado"
-        });
-
-        atualizarKpis();
-
-        return;
-
-    }
-
-    const pendencias = pendentesMap.get(item.codigo) || [];
-
-    if(pendencias.length > 0){
-
-        contadores.pendente++;
-
-        mostrarResultado({
-            status: "pendente",
-            codigoBipado,
-            item,
-            pendencias
-        });
-
-        registrarHistorico({
-            hora,
-            codigoBipado,
-            codigoReduzido: item.codigo,
-            produto: item.descricao,
-            status: "pendente",
-            qtd: pendencias.length
-        });
-
     }else{
 
-        contadores.ok++;
+        const pendencias = pendentesMap.get(item.codigo) || [];
 
-        mostrarResultado({
-            status: "ok",
-            codigoBipado,
-            item
-        });
+        if(pendencias.length > 0){
 
-        registrarHistorico({
-            hora,
-            codigoBipado,
-            codigoReduzido: item.codigo,
-            produto: item.descricao,
-            status: "ok"
-        });
+            contadores.pendente++;
+
+            registro = {
+                hora,
+                codigoBipado,
+                codigoReduzido: item.codigo,
+                produto: item.descricao,
+                tipo: item.tipo,
+                status: "pendente",
+                pendencias
+            };
+
+            mostrarResultado({
+                status: "pendente",
+                codigoBipado,
+                item,
+                pendencias
+            });
+
+        }else{
+
+            contadores.ok++;
+
+            registro = {
+                hora,
+                codigoBipado,
+                codigoReduzido: item.codigo,
+                produto: item.descricao,
+                tipo: item.tipo,
+                status: "ok",
+                pendencias: []
+            };
+
+            mostrarResultado({
+                status: "ok",
+                codigoBipado,
+                item
+            });
+
+        }
 
     }
+
+    registrarHistorico(registro);
+
+    adicionarAoPalete(registro);
 
     atualizarKpis();
 
@@ -508,12 +562,14 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
 // RENDER — HISTÓRICO
 // =====================================
 
-function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, status, qtd }){
+function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, status, pendencias }){
 
     const tbody = document.getElementById("historicoBody");
 
     const vazio = document.getElementById("historicoVazio");
     if(vazio) vazio.remove();
+
+    const qtd = pendencias ? pendencias.length : 0;
 
     const tagInfo = {
         "pendente": { classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` },
@@ -532,6 +588,185 @@ function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, statu
     `;
 
     tbody.prepend(tr);
+
+}
+
+// =====================================
+// PALETE — ACUMULA BIPAGENS ATÉ FECHAR
+// =====================================
+// Cada item bipado entra no palete atual, seja qual for o resultado
+// (pendente, ok ou não cadastrado). O palete só reinicia quando o
+// usuário clica em "Fechar Palete".
+
+function adicionarAoPalete(registro){
+
+    paleteAtual.itens.push(registro);
+
+    renderizarPalete();
+
+}
+
+function renderizarPalete(){
+
+    const numeroEl = document.getElementById("paleteNumero");
+    const contagemEl = document.getElementById("paleteContagem");
+    const tbody = document.getElementById("paleteBody");
+    const btnFechar = document.getElementById("btnFecharPalete");
+
+    numeroEl.textContent = paleteAtual.numero;
+    contagemEl.textContent = paleteAtual.itens.length;
+
+    btnFechar.disabled = paleteAtual.itens.length === 0;
+
+    if(paleteAtual.itens.length === 0){
+
+        tbody.innerHTML = `
+            <tr id="paleteVazio">
+                <td colspan="5" class="historico-vazio-linha">
+                    Nenhum item bipado neste palete ainda.
+                </td>
+            </tr>
+        `;
+
+        return;
+
+    }
+
+    const tagInfo = {
+        "pendente": (qtd) => ({ classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` }),
+        "ok": () => ({ classe:"tag-ok", texto:"✅ OK" }),
+        "nao-encontrado": () => ({ classe:"tag-nao-encontrado", texto:"❔ Não Cadastrado" })
+    };
+
+    tbody.innerHTML = paleteAtual.itens.map((it, idx) => {
+
+        const info = tagInfo[it.status](it.pendencias.length);
+
+        return `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${it.hora}</td>
+                <td>${it.codigoBipado}</td>
+                <td>${it.produto}</td>
+                <td><span class="tag ${info.classe}">${info.texto}</span></td>
+            </tr>
+        `;
+
+    }).join("");
+
+}
+
+function fecharPalete(){
+
+    if(paleteAtual.itens.length === 0) return;
+
+    document.getElementById("modalPaleteNumero").textContent = paleteAtual.numero;
+    document.getElementById("modalPaleteContagem").textContent = paleteAtual.itens.length;
+
+    document.getElementById("modalImprimir").classList.add("aberto");
+
+}
+
+function fecharModalImprimir(){
+
+    document.getElementById("modalImprimir").classList.remove("aberto");
+
+}
+
+function confirmarImpressao(imprimir){
+
+    fecharModalImprimir();
+
+    if(imprimir){
+        gerarImpressaoPalete();
+    }
+
+    iniciarNovoPalete();
+
+    if(imprimir){
+        // pequeno atraso pra garantir que o modal já sumiu e a área
+        // de impressão foi montada antes de abrir o diálogo do
+        // navegador (onde aparecem as impressoras cadastradas,
+        // inclusive de rede).
+        setTimeout(()=> window.print(), 150);
+    }
+
+}
+
+function iniciarNovoPalete(){
+
+    paleteAtual = {
+        numero: paleteAtual.numero + 1,
+        itens: []
+    };
+
+    renderizarPalete();
+
+    if(!inputScan.disabled) inputScan.focus();
+
+}
+
+function gerarImpressaoPalete(){
+
+    const area = document.getElementById("areaImpressao");
+
+    const dataHora = new Date().toLocaleString("pt-BR");
+
+    const statusTexto = {
+        "pendente": (qtd) => `⛔ PENDENTE (${qtd})`,
+        "ok": () => "✅ SEM PENDÊNCIA",
+        "nao-encontrado": () => "❔ NÃO CADASTRADO"
+    };
+
+    const linhas = paleteAtual.itens.map((it, idx) => {
+
+        let detalhe = "—";
+
+        if(it.status === "pendente" && it.pendencias.length > 0){
+
+            detalhe = it.pendencias.map(p =>
+                `Master ${p.master || "—"} • Pos. ${p.posicao || "—"} • Qtd ${p.quantidadeTotal || "—"}`
+            ).join("<br>");
+
+        }
+
+        return `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${it.hora}</td>
+                <td>${it.codigoBipado}</td>
+                <td>${it.codigoReduzido}</td>
+                <td>${it.produto}</td>
+                <td>${statusTexto[it.status](it.pendencias.length)}</td>
+                <td>${detalhe}</td>
+            </tr>
+        `;
+
+    }).join("");
+
+    area.innerHTML = `
+        <div class="impressao-cabecalho">
+            <h1>Comercial Zaffari • CD-107</h1>
+            <h2>Romaneio de Palete — Nº ${paleteAtual.numero}</h2>
+            <p>Gerado em ${dataHora} • ${paleteAtual.itens.length} item(ns) bipado(s)</p>
+        </div>
+        <table class="impressao-tabela">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Hora</th>
+                    <th>Cód. Bipado</th>
+                    <th>Cód. Reduzido</th>
+                    <th>Produto</th>
+                    <th>Status</th>
+                    <th>Detalhe da Pendência</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${linhas}
+            </tbody>
+        </table>
+    `;
 
 }
 
@@ -567,6 +802,16 @@ function limparSessao(){
     document.getElementById("historicoBody").innerHTML =
         `<tr id="historicoVazio"><td colspan="5" class="historico-vazio-linha">Nenhuma leitura ainda.</td></tr>`;
 
+    paleteAtual = { numero: 1, itens: [] };
+
+    renderizarPalete();
+
     if(!inputScan.disabled) inputScan.focus();
 
 }
+
+// =====================================
+// INICIALIZAÇÃO
+// =====================================
+
+renderizarPalete();
