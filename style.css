@@ -1107,6 +1107,12 @@ body{
 
     }
 
+    @page{
+
+        margin:14mm 12mm;
+
+    }
+
     .area-impressao{
 
         display:block;
@@ -1117,17 +1123,23 @@ body{
 
         font-family:var(--font-body);
 
-        color:#000;
+        color:#1A1A1A;
 
     }
 
     .impressao-cabecalho{
 
-        margin-bottom:18px;
+        display:flex;
 
-        border-bottom:2px solid #000;
+        justify-content:space-between;
 
-        padding-bottom:8px;
+        align-items:flex-end;
+
+        margin-bottom:16px;
+
+        padding-bottom:10px;
+
+        border-bottom:3px solid var(--navy-1);
 
     }
 
@@ -1135,7 +1147,11 @@ body{
 
         font-family:var(--font-display);
 
-        font-size:1.15rem;
+        font-size:1.2rem;
+
+        letter-spacing:.02em;
+
+        color:var(--navy-1);
 
     }
 
@@ -1145,43 +1161,88 @@ body{
 
         font-size:1rem;
 
-        margin-top:2px;
+        margin-top:3px;
+
+        color:#333;
 
     }
 
     .impressao-cabecalho p{
 
-        font-size:.78rem;
+        font-size:.74rem;
 
-        color:#333;
+        color:#555;
 
         margin-top:4px;
 
     }
 
+    .impressao-selo-total{
+
+        text-align:right;
+
+        font-family:var(--font-display);
+
+        white-space:nowrap;
+
+    }
+
+    .impressao-selo-total strong{
+
+        display:block;
+
+        font-size:1.6rem;
+
+        color:var(--amber);
+
+        line-height:1;
+
+    }
+
+    .impressao-selo-total span{
+
+        font-size:.62rem;
+
+        text-transform:uppercase;
+
+        letter-spacing:.05em;
+
+        color:#666;
+
+    }
+
     /* Bloco por item bipado — evita quebrar o item no meio entre */
     /* páginas e mantém a subtabela de pendências sempre junto do */
-    /* cabeçalho do item a que ela pertence. */
+    /* cabeçalho do item a que ela pertence. Uma faixa colorida na */
+    /* esquerda indica o status do item de relance. */
 
     .impressao-item{
 
-        border:1px solid #999;
+        border:1px solid #ccc;
 
-        border-radius:4px;
+        border-left:4px solid #999;
 
-        margin-bottom:10px;
+        border-radius:3px;
+
+        margin-bottom:9px;
 
         page-break-inside:avoid;
 
         break-inside:avoid;
 
+        overflow:hidden;
+
     }
+
+    .impressao-item.imp-borda-pendente{ border-left-color:#C0392B; }
+    .impressao-item.imp-borda-ok{ border-left-color:#1F7A4C; }
+    .impressao-item.imp-borda-nao-encontrado{ border-left-color:#888; }
 
     .impressao-item-topo{
 
         display:grid;
 
-        grid-template-columns:24px 64px 110px 1fr 130px;
+        grid-template-columns:22px 62px 112px 1fr 128px;
 
         gap:10px;
 
@@ -1189,17 +1250,27 @@ body{
 
         padding:7px 10px;
 
-        background:#F2F2F2;
+        background:#F7F7F9;
 
-        border-bottom:1px solid #999;
+        border-bottom:1px solid #ddd;
 
-        font-size:.75rem;
+        font-size:.74rem;
 
     }
 
     .impressao-item-num{
 
         font-weight:700;
+
+        color:#888;
+
+    }
+
+    .impressao-item-hora{
+
+        font-family:var(--font-mono);
+
+        color:#555;
 
     }
 
@@ -1213,9 +1284,9 @@ body{
 
     .impressao-item-codigo small{
 
-        color:#555;
+        color:#777;
 
-        font-size:.68rem;
+        font-size:.66rem;
 
     }
 
@@ -1223,19 +1294,21 @@ body{
 
         font-weight:600;
 
+        color:#111;
+
     }
 
     .imp-status{
 
         justify-self:end;
 
-        font-size:.66rem;
+        font-size:.64rem;
 
         font-weight:700;
 
         letter-spacing:.03em;
 
-        padding:3px 8px;
+        padding:3px 9px;
 
         border-radius:10px;
 
@@ -1261,10 +1334,31 @@ body{
 
     }
 
-    .impressao-subtabela th,
-    .impressao-subtabela td{
+    .impressao-subtabela th{
 
-        border-top:1px solid #ddd;
+        background:#FBFBFC;
+
+        color:#777;
+
+        font-weight:700;
+
+        text-transform:uppercase;
+
+        font-size:.6rem;
+
+        letter-spacing:.04em;
+
+        padding:5px 10px;
+
+        text-align:left;
+
+        border-top:1px solid #e2e2e2;
+
+        border-bottom:1px solid #e2e2e2;
+
+    }
+
+    .impressao-subtabela td{
 
         padding:5px 10px;
 
@@ -1272,21 +1366,64 @@ body{
 
         text-align:left;
 
+        border-top:1px solid #eee;
+
     }
 
-    .impressao-subtabela th{
+    .impressao-subtabela tbody tr:nth-child(even){
 
         background:#FAFAFA;
 
-        color:#555;
+    }
+
+    .impressao-subtabela td:first-child,
+    .impressao-subtabela th:first-child{
+
+        font-family:var(--font-mono);
+
+        width:19%;
+
+    }
+
+    /* Posição é o dado que guia o operador andando pela rampa —
+       fica destacada pra ler de relance, seguindo sempre Z-A
+       (rampa 23 → rampa 1). */
+
+    .impressao-subtabela .col-posicao{
+
+        font-family:var(--font-mono);
 
         font-weight:700;
 
-        text-transform:uppercase;
+        color:var(--navy-1);
 
-        font-size:.62rem;
+        background:color-mix(in srgb, var(--amber) 12%, #fff);
 
-        letter-spacing:.03em;
+        white-space:nowrap;
+
+    }
+
+    .impressao-subtabela .col-qtd{
+
+        text-align:center;
+
+        width:6%;
+
+    }
+
+    .impressao-rodape{
+
+        margin-top:14px;
+
+        padding-top:8px;
+
+        border-top:1px solid #ddd;
+
+        font-size:.66rem;
+
+        color:#888;
+
+        text-align:center;
 
     }
 

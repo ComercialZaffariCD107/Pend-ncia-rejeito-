@@ -198,6 +198,39 @@ async function carregarBanco(file){
 // (Palete)Master;(Palete)Posição;(Caixa)Status no Palete;
 // tipEspecie;quantidadeTotal;Código do produto
 
+// =====================================
+// ORDENAÇÃO DAS PENDÊNCIAS POR POSIÇÃO (Z-A)
+// =====================================
+// Posição no formato "PTL-{rampa}-{coluna}". A operação anda da
+// rampa 23 até a rampa 1, então as pendências sempre aparecem
+// ordenadas da rampa maior pra menor (e, dentro da rampa, da coluna
+// maior pra menor) — tanto na tela quanto na impressão.
+
+function extrairPosicaoOrdenavel(posicao){
+
+    if(!posicao) return [-Infinity, -Infinity];
+
+    const match = posicao.match(/PTL-(\d+)-(\d+)/i);
+
+    if(match) return [parseInt(match[1], 10), parseInt(match[2], 10)];
+
+    const numeros = (posicao.match(/\d+/g) || []).map(Number);
+
+    return [numeros[0] ?? -Infinity, numeros[1] ?? -Infinity];
+
+}
+
+function compararPosicaoDesc(a, b){
+
+    const [rampaA, colunaA] = extrairPosicaoOrdenavel(a.posicao);
+    const [rampaB, colunaB] = extrairPosicaoOrdenavel(b.posicao);
+
+    if(rampaB !== rampaA) return rampaB - rampaA;
+
+    return colunaB - colunaA;
+
+}
+
 async function carregarPendentes(file){
 
     if(!file) return;
@@ -258,6 +291,12 @@ async function carregarPendentes(file){
         }
 
         loadingFill.style.width = "100%";
+
+        // ordena cada lista de pendências por posição, da rampa 23
+        // até a rampa 1 (Z-A), pra bater com o sentido da operação
+        for(const lista of pendentesMap.values()){
+            lista.sort(compararPosicaoDesc);
+        }
 
         pendentesCarregado = true;
 
@@ -711,14 +750,18 @@ function gerarImpressaoPalete(){
     const dataHora = new Date().toLocaleString("pt-BR");
 
     const statusInfo = {
-        "pendente": (qtd) => ({ classe:"imp-pendente", texto:`⛔ PENDENTE (${qtd})` }),
-        "ok": () => ({ classe:"imp-ok", texto:"✅ SEM PENDÊNCIA" }),
-        "nao-encontrado": () => ({ classe:"imp-nao-encontrado", texto:"❔ NÃO CADASTRADO" })
+        "pendente": (qtd) => ({ classe:"imp-pendente", borda:"imp-borda-pendente", texto:`⛔ PENDENTE (${qtd})` }),
+        "ok": () => ({ classe:"imp-ok", borda:"imp-borda-ok", texto:"✅ SEM PENDÊNCIA" }),
+        "nao-encontrado": () => ({ classe:"imp-nao-encontrado", borda:"imp-borda-nao-encontrado", texto:"❔ NÃO CADASTRADO" })
     };
+
+    let totalPendencias = 0;
 
     const blocos = paleteAtual.itens.map((it, idx) => {
 
         const info = statusInfo[it.status](it.pendencias.length);
+
+        totalPendencias += it.pendencias.length;
 
         let subtabela = "";
 
@@ -728,8 +771,8 @@ function gerarImpressaoPalete(){
                 <tr>
                     <td>${p.etiqueta}</td>
                     <td>${it.produto}</td>
-                    <td>${p.posicao || "—"}</td>
-                    <td>${p.quantidadeTotal}</td>
+                    <td class="col-posicao">${p.posicao || "—"}</td>
+                    <td class="col-qtd">${p.quantidadeTotal}</td>
                     <td>${p.hIntegrado}</td>
                 </tr>
             `).join("");
@@ -741,7 +784,7 @@ function gerarImpressaoPalete(){
                             <th>Etiqueta (DUN)</th>
                             <th>Descrição</th>
                             <th>Posição</th>
-                            <th>Qtd</th>
+                            <th class="col-qtd">Qtd</th>
                             <th>Integrado em</th>
                         </tr>
                     </thead>
@@ -754,7 +797,7 @@ function gerarImpressaoPalete(){
         }
 
         return `
-            <div class="impressao-item">
+            <div class="impressao-item ${info.borda}">
 
                 <div class="impressao-item-topo">
                     <span class="impressao-item-num">${idx + 1}</span>
@@ -773,11 +816,20 @@ function gerarImpressaoPalete(){
 
     area.innerHTML = `
         <div class="impressao-cabecalho">
-            <h1>Comercial Zaffari • CD-107</h1>
-            <h2>Romaneio de Palete — Nº ${paleteAtual.numero}</h2>
-            <p>Gerado em ${dataHora} • ${paleteAtual.itens.length} item(ns) bipado(s)</p>
+            <div>
+                <h1>Comercial Zaffari • CD-107</h1>
+                <h2>Romaneio de Palete — Nº ${paleteAtual.numero}</h2>
+                <p>Gerado em ${dataHora} • Sentido de conferência: rampa 23 → rampa 1</p>
+            </div>
+            <div class="impressao-selo-total">
+                <strong>${paleteAtual.itens.length}</strong>
+                <span>item(ns) bipado(s)</span>
+            </div>
         </div>
         ${blocos}
+        <div class="impressao-rodape">
+            Consulta de Pendentes — Sorter • CD-107 • ${totalPendencias} pendência(s) neste palete
+        </div>
     `;
 
 }
