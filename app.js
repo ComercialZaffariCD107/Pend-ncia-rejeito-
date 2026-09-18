@@ -19,11 +19,36 @@ const contadores = {
 };
 
 // =====================================
-// LEITURA — BANCO DE DADOS (XLSX)
+// DECODIFICAÇÃO DE TEXTO (TXT/CSV)
 // =====================================
-// Planilha "BASE": Código | Descrição | Embalagem | Código de barras | Tipo código
-// Cada código reduzido aparece em várias linhas — uma por código de
-// barras (DUN e/ou EAN) que ele possui.
+// Exports do Velox costumam sair em ISO-8859-1 / windows-1252 (acentos
+// e símbolos como °, º, ´ quebram se lidos como UTF-8). Se o arquivo
+// tiver BOM UTF-8, respeita UTF-8; senão, decodifica como windows-1252.
+
+function decodificarTexto(buffer){
+
+    const bytes = new Uint8Array(buffer);
+
+    const temBOM =
+        bytes.length >= 3 &&
+        bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+
+    let texto = new TextDecoder(temBOM ? "utf-8" : "windows-1252").decode(buffer);
+
+    if(temBOM) texto = texto.slice(1);
+
+    return texto;
+
+}
+
+// =====================================
+// LEITURA — BANCO DE DADOS (XLSX / CSV / TXT)
+// =====================================
+// Aceita tanto planilha ("BASE": Código | Descrição | Embalagem |
+// Código de barras | Tipo código) quanto exportação em texto do Velox
+// separada por ";" (SEQPRODUTO;DESCCOMPLETA;QTDEMBALAGEM;
+// CODIGO_BARRAS;TIPO_CODIGO). Cada código reduzido aparece em várias
+// linhas — uma por código de barras (DUN e/ou EAN) que ele possui.
 
 async function carregarBanco(file){
 
@@ -39,39 +64,95 @@ async function carregarBanco(file){
 
     try{
 
+        const nomeArquivo = file.name.toLowerCase();
+        const ehTexto = nomeArquivo.endsWith(".txt") || nomeArquivo.endsWith(".csv");
+
         const buffer = await file.arrayBuffer();
 
         loadingFill.style.width = "50%";
 
-        const workbook = XLSX.read(buffer, { type:"array" });
-
-        const sheet =
-            workbook.Sheets["BASE"] ||
-            workbook.Sheets[workbook.SheetNames[0]];
-
-        const linhas = XLSX.utils.sheet_to_json(sheet, { defval:"" });
-
-        loadingFill.style.width = "80%";
-
         bancoMap = new Map();
 
-        for(const linha of linhas){
+        if(ehTexto){
 
-            const codigoBarras =
-                String(
-                    linha["Código de barras"] ??
-                    linha["Codigo de barras"] ??
-                    ""
-                ).trim();
+            // ---- TXT / CSV (Velox) ----
 
-            if(!codigoBarras) continue;
+            const texto = decodificarTexto(buffer);
 
-            bancoMap.set(codigoBarras, {
-                codigo: String(linha["Código"] ?? linha["Codigo"] ?? "").trim(),
-                descricao: String(linha["Descrição"] ?? linha["Descricao"] ?? "").trim(),
-                embalagem: linha["Embalagem"] ?? "",
-                tipo: String(linha["Tipo código"] ?? linha["Tipo codigo"] ?? "").trim()
-            });
+            const linhas = texto
+                .split(/\r\n|\n/)
+                .filter(l => l.trim().length > 0);
+
+            if(linhas.length > 0){
+
+                const cabecalho = linhas[0]
+                    .split(";")
+                    .map(c => c.trim().toUpperCase());
+
+                const acharColuna = (...nomes) =>
+                    cabecalho.findIndex(c => nomes.includes(c));
+
+                const idx = {
+                    codigo: acharColuna("SEQPRODUTO", "CÓDIGO", "CODIGO"),
+                    descricao: acharColuna("DESCCOMPLETA", "DESCRIÇÃO", "DESCRICAO"),
+                    embalagem: acharColuna("QTDEMBALAGEM", "EMBALAGEM"),
+                    codigoBarras: acharColuna("CODIGO_BARRAS", "CÓDIGO DE BARRAS", "CODIGO DE BARRAS"),
+                    tipo: acharColuna("TIPO_CODIGO", "TIPO CÓDIGO", "TIPO CODIGO")
+                };
+
+                for(let i = 1; i < linhas.length; i++){
+
+                    const campos = linhas[i].split(";");
+
+                    const codigoBarras =
+                        idx.codigoBarras >= 0
+                            ? (campos[idx.codigoBarras] ?? "").trim()
+                            : "";
+
+                    if(!codigoBarras) continue;
+
+                    bancoMap.set(codigoBarras, {
+                        codigo: idx.codigo >= 0 ? (campos[idx.codigo] ?? "").trim() : "",
+                        descricao: idx.descricao >= 0 ? (campos[idx.descricao] ?? "").trim() : "",
+                        embalagem: idx.embalagem >= 0 ? (campos[idx.embalagem] ?? "").trim() : "",
+                        tipo: idx.tipo >= 0 ? (campos[idx.tipo] ?? "").trim() : ""
+                    });
+
+                }
+
+            }
+
+        }else{
+
+            // ---- XLSX / XLS ----
+
+            const workbook = XLSX.read(buffer, { type:"array" });
+
+            const sheet =
+                workbook.Sheets["BASE"] ||
+                workbook.Sheets[workbook.SheetNames[0]];
+
+            const linhas = XLSX.utils.sheet_to_json(sheet, { defval:"" });
+
+            for(const linha of linhas){
+
+                const codigoBarras =
+                    String(
+                        linha["Código de barras"] ??
+                        linha["Codigo de barras"] ??
+                        ""
+                    ).trim();
+
+                if(!codigoBarras) continue;
+
+                bancoMap.set(codigoBarras, {
+                    codigo: String(linha["Código"] ?? linha["Codigo"] ?? "").trim(),
+                    descricao: String(linha["Descrição"] ?? linha["Descricao"] ?? "").trim(),
+                    embalagem: linha["Embalagem"] ?? "",
+                    tipo: String(linha["Tipo código"] ?? linha["Tipo codigo"] ?? "").trim()
+                });
+
+            }
 
         }
 
@@ -123,12 +204,9 @@ async function carregarPendentes(file){
 
     try{
 
-        let texto = await file.text();
+        const buffer = await file.arrayBuffer();
 
-        // remove BOM se existir
-        if(texto.charCodeAt(0) === 0xFEFF){
-            texto = texto.slice(1);
-        }
+        const texto = decodificarTexto(buffer);
 
         loadingFill.style.width = "50%";
 

@@ -62,7 +62,7 @@
 
         <h3>Banco de Dados</h3>
 
-        <span>Código de barras (DUN/EAN) → código reduzido</span>
+        <span>Código de barras (DUN/EAN) → código reduzido — .xlsx, .csv ou .txt</span>
 
         <label for="arquivoBanco" class="upload-btn">
             📂 Selecionar Arquivo
@@ -71,7 +71,7 @@
         <input
         type="file"
         id="arquivoBanco"
-        accept=".xlsx,.xls"
+        accept=".xlsx,.xls,.csv,.txt"
         class="file-hidden"
         onchange="carregarBanco(this.files[0])">
 
