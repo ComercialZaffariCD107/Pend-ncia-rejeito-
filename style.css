@@ -1465,9 +1465,7 @@ body{
     .impressao-subtabela td:first-child,
     .impressao-subtabela th:first-child{
 
-        font-family:var(--font-mono);
-
-        width:19%;
+        width:46%;
 
     }
 
@@ -1487,13 +1485,25 @@ body{
 
         white-space:nowrap;
 
+        width:18%;
+
     }
 
     .impressao-subtabela .col-qtd{
 
         text-align:center;
 
-        width:6%;
+        width:8%;
+
+    }
+
+    .impressao-subtabela td:last-child{
+
+        font-family:var(--font-mono);
+
+        color:#666;
+
+        white-space:nowrap;
 
     }
 

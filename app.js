@@ -769,7 +769,6 @@ function gerarImpressaoPalete(){
 
             const linhasPendencia = it.pendencias.map(p => `
                 <tr>
-                    <td>${p.etiqueta}</td>
                     <td>${it.produto}</td>
                     <td class="col-posicao">${p.posicao || "—"}</td>
                     <td class="col-qtd">${p.quantidadeTotal}</td>
@@ -781,7 +780,6 @@ function gerarImpressaoPalete(){
                 <table class="impressao-subtabela">
                     <thead>
                         <tr>
-                            <th>Etiqueta (DUN)</th>
                             <th>Descrição</th>
                             <th>Posição</th>
                             <th class="col-qtd">Qtd</th>
