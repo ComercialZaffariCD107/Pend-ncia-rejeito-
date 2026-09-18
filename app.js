@@ -445,6 +445,39 @@ function sinalizarCodigoNaoCadastrado(){
 
 }
 
+function sinalizarItemDuplicado(){
+
+    inputScan.classList.add("scan-input-aviso");
+
+    setTimeout(()=> inputScan.classList.remove("scan-input-aviso"), 350);
+
+}
+
+function mostrarResultadoDuplicado(item, codigoBipado, itemExistente){
+
+    const card = document.getElementById("resultadoCard");
+
+    const linha = paleteAtual.itens.indexOf(itemExistente) + 1;
+
+    card.innerHTML = `
+        <div class="resultado-conteudo status-duplicado">
+            <div class="resultado-topo">
+                <div class="resultado-produto">
+                    <h2>${item.descricao}</h2>
+                    <p>Código reduzido: ${item.codigo} • Bipado: ${codigoBipado} (${item.tipo})</p>
+                </div>
+                <div class="resultado-selo">⚠️ Já Bipado Neste Palete</div>
+            </div>
+            <p style="color:var(--muted); font-size:.85rem;">
+                Esse item já está no palete atual — linha ${linha}, ${itemExistente.hora}.
+                Bipagem ignorada pra não duplicar. Se for outra caixa de verdade,
+                feche este palete antes de bipar de novo.
+            </p>
+        </div>
+    `;
+
+}
+
 function processarLeitura(codigoBipado){
 
     codigoBipado = codigoBipado.replace(/\D/g, "").trim();
@@ -460,6 +493,21 @@ function processarLeitura(codigoBipado){
     if(!item){
 
         sinalizarCodigoNaoCadastrado();
+
+        return;
+
+    }
+
+    // Mesmo item (código reduzido) já bipado nesse palete: não deixa
+    // duplicar. Mostra onde ele já está e ignora a nova leitura.
+
+    const itemExistente = paleteAtual.itens.find(it => it.codigoReduzido === item.codigo);
+
+    if(itemExistente){
+
+        sinalizarItemDuplicado();
+
+        mostrarResultadoDuplicado(item, codigoBipado, itemExistente);
 
         return;
 
