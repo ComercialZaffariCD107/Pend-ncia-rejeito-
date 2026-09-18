@@ -519,9 +519,8 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
     const linhas = pendencias.map(p => `
         <tr>
             <td>${p.etiqueta}</td>
-            <td>${p.master || "—"}</td>
+            <td>${item.descricao}</td>
             <td>${p.posicao || "—"}</td>
-            <td>${p.tipo}</td>
             <td>${p.quantidadeTotal}</td>
             <td>${p.hIntegrado}</td>
         </tr>
@@ -541,9 +540,8 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
                     <thead>
                         <tr>
                             <th>Etiqueta (DUN)</th>
-                            <th>Master</th>
+                            <th>Descrição</th>
                             <th>Posição</th>
-                            <th>Tipo</th>
                             <th>Qtd</th>
                             <th>Integrado em</th>
                         </tr>
@@ -712,34 +710,63 @@ function gerarImpressaoPalete(){
 
     const dataHora = new Date().toLocaleString("pt-BR");
 
-    const statusTexto = {
-        "pendente": (qtd) => `⛔ PENDENTE (${qtd})`,
-        "ok": () => "✅ SEM PENDÊNCIA",
-        "nao-encontrado": () => "❔ NÃO CADASTRADO"
+    const statusInfo = {
+        "pendente": (qtd) => ({ classe:"imp-pendente", texto:`⛔ PENDENTE (${qtd})` }),
+        "ok": () => ({ classe:"imp-ok", texto:"✅ SEM PENDÊNCIA" }),
+        "nao-encontrado": () => ({ classe:"imp-nao-encontrado", texto:"❔ NÃO CADASTRADO" })
     };
 
-    const linhas = paleteAtual.itens.map((it, idx) => {
+    const blocos = paleteAtual.itens.map((it, idx) => {
 
-        let detalhe = "—";
+        const info = statusInfo[it.status](it.pendencias.length);
+
+        let subtabela = "";
 
         if(it.status === "pendente" && it.pendencias.length > 0){
 
-            detalhe = it.pendencias.map(p =>
-                `Master ${p.master || "—"} • Pos. ${p.posicao || "—"} • Qtd ${p.quantidadeTotal || "—"}`
-            ).join("<br>");
+            const linhasPendencia = it.pendencias.map(p => `
+                <tr>
+                    <td>${p.etiqueta}</td>
+                    <td>${it.produto}</td>
+                    <td>${p.posicao || "—"}</td>
+                    <td>${p.quantidadeTotal}</td>
+                    <td>${p.hIntegrado}</td>
+                </tr>
+            `).join("");
+
+            subtabela = `
+                <table class="impressao-subtabela">
+                    <thead>
+                        <tr>
+                            <th>Etiqueta (DUN)</th>
+                            <th>Descrição</th>
+                            <th>Posição</th>
+                            <th>Qtd</th>
+                            <th>Integrado em</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${linhasPendencia}
+                    </tbody>
+                </table>
+            `;
 
         }
 
         return `
-            <tr>
-                <td>${idx + 1}</td>
-                <td>${it.hora}</td>
-                <td>${it.codigoBipado}</td>
-                <td>${it.codigoReduzido}</td>
-                <td>${it.produto}</td>
-                <td>${statusTexto[it.status](it.pendencias.length)}</td>
-                <td>${detalhe}</td>
-            </tr>
+            <div class="impressao-item">
+
+                <div class="impressao-item-topo">
+                    <span class="impressao-item-num">${idx + 1}</span>
+                    <span class="impressao-item-hora">${it.hora}</span>
+                    <span class="impressao-item-codigo">${it.codigoBipado}<br><small>(${it.codigoReduzido})</small></span>
+                    <span class="impressao-item-produto">${it.produto}</span>
+                    <span class="imp-status ${info.classe}">${info.texto}</span>
+                </div>
+
+                ${subtabela}
+
+            </div>
         `;
 
     }).join("");
@@ -750,22 +777,7 @@ function gerarImpressaoPalete(){
             <h2>Romaneio de Palete — Nº ${paleteAtual.numero}</h2>
             <p>Gerado em ${dataHora} • ${paleteAtual.itens.length} item(ns) bipado(s)</p>
         </div>
-        <table class="impressao-tabela">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Hora</th>
-                    <th>Cód. Bipado</th>
-                    <th>Cód. Reduzido</th>
-                    <th>Produto</th>
-                    <th>Status</th>
-                    <th>Detalhe da Pendência</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${linhas}
-            </tbody>
-        </table>
+        ${blocos}
     `;
 
 }

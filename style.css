@@ -1097,28 +1097,19 @@ body{
 
 @media print{
 
-    body *{
+    /* Esconde tudo, exceto a área de impressão — usar display:none
+       (em vez de visibility:hidden) evita que o espaço em branco do
+       resto da página fique reservado no papel. */
 
-        visibility:hidden;
+    body > *:not(.area-impressao){
 
-    }
-
-    .area-impressao,
-    .area-impressao *{
-
-        visibility:visible;
+        display:none !important;
 
     }
 
     .area-impressao{
 
         display:block;
-
-        position:absolute;
-
-        top:0;
-
-        left:0;
 
         width:100%;
 
@@ -1132,7 +1123,11 @@ body{
 
     .impressao-cabecalho{
 
-        margin-bottom:16px;
+        margin-bottom:18px;
+
+        border-bottom:2px solid #000;
+
+        padding-bottom:8px;
 
     }
 
@@ -1140,7 +1135,7 @@ body{
 
         font-family:var(--font-display);
 
-        font-size:1.1rem;
+        font-size:1.15rem;
 
     }
 
@@ -1164,7 +1159,95 @@ body{
 
     }
 
-    .impressao-tabela{
+    /* Bloco por item bipado — evita quebrar o item no meio entre */
+    /* páginas e mantém a subtabela de pendências sempre junto do */
+    /* cabeçalho do item a que ela pertence. */
+
+    .impressao-item{
+
+        border:1px solid #999;
+
+        border-radius:4px;
+
+        margin-bottom:10px;
+
+        page-break-inside:avoid;
+
+        break-inside:avoid;
+
+    }
+
+    .impressao-item-topo{
+
+        display:grid;
+
+        grid-template-columns:24px 64px 110px 1fr 130px;
+
+        gap:10px;
+
+        align-items:center;
+
+        padding:7px 10px;
+
+        background:#F2F2F2;
+
+        border-bottom:1px solid #999;
+
+        font-size:.75rem;
+
+    }
+
+    .impressao-item-num{
+
+        font-weight:700;
+
+    }
+
+    .impressao-item-codigo{
+
+        font-family:var(--font-mono);
+
+        line-height:1.25;
+
+    }
+
+    .impressao-item-codigo small{
+
+        color:#555;
+
+        font-size:.68rem;
+
+    }
+
+    .impressao-item-produto{
+
+        font-weight:600;
+
+    }
+
+    .imp-status{
+
+        justify-self:end;
+
+        font-size:.66rem;
+
+        font-weight:700;
+
+        letter-spacing:.03em;
+
+        padding:3px 8px;
+
+        border-radius:10px;
+
+        white-space:nowrap;
+
+    }
+
+    .imp-pendente{ background:#FBDAD8; color:#8A1D16; }
+    .imp-ok{ background:#D8F3E4; color:#146338; }
+    .imp-nao-encontrado{ background:#E7E7E7; color:#444; }
+
+    .impressao-subtabela{
 
         width:100%;
 
@@ -1172,22 +1255,38 @@ body{
 
     }
 
-    .impressao-tabela th,
-    .impressao-tabela td{
+    .impressao-subtabela thead{
 
-        border:1px solid #999;
+        position:static;
 
-        padding:6px 8px;
+    }
 
-        font-size:.72rem;
+    .impressao-subtabela th,
+    .impressao-subtabela td{
+
+        border-top:1px solid #ddd;
+
+        padding:5px 10px;
+
+        font-size:.7rem;
 
         text-align:left;
 
     }
 
-    .impressao-tabela th{
+    .impressao-subtabela th{
 
-        background:#EEE;
+        background:#FAFAFA;
+
+        color:#555;
+
+        font-weight:700;
+
+        text-transform:uppercase;
+
+        font-size:.62rem;
+
+        letter-spacing:.03em;
 
     }
 
