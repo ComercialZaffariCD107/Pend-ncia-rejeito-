@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consulta de Pendentes — Sorter</title>
 
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -116,6 +116,68 @@
 
     </div>
 
+    <!-- CONSULTA STAGE-IN -->
+
+    <div class="upload-card">
+
+        <div class="upload-icon">📥</div>
+
+        <h3>Consulta Stage-in</h3>
+
+        <span>Itens com situação "Pendente" no Stage-in — .txt ou .csv</span>
+
+        <label for="arquivoStageIn" class="upload-btn">
+            📂 Selecionar Arquivo
+        </label>
+
+        <input
+        type="file"
+        id="arquivoStageIn"
+        accept=".csv,.txt"
+        class="file-hidden"
+        onchange="carregarStageIn(this.files[0])">
+
+        <div id="statusStageIn" class="arquivo-selecionado">
+            Nenhum arquivo carregado
+        </div>
+
+        <div class="upload-loading" id="loadingStageIn">
+            <div class="upload-loading-fill" id="loadingFillStageIn"></div>
+        </div>
+
+    </div>
+
+    <!-- MOVIMENTAÇÃO HORIZONTAL -->
+
+    <div class="upload-card">
+
+        <div class="upload-icon">↔️</div>
+
+        <h3>Movimentação Horizontal</h3>
+
+        <span>Itens ainda pendentes na tela de Movimentação Horizontal — .txt ou .csv</span>
+
+        <label for="arquivoMovHorizontal" class="upload-btn">
+            📂 Selecionar Arquivo
+        </label>
+
+        <input
+        type="file"
+        id="arquivoMovHorizontal"
+        accept=".csv,.txt"
+        class="file-hidden"
+        onchange="carregarMovHorizontal(this.files[0])">
+
+        <div id="statusMovHorizontal" class="arquivo-selecionado">
+            Nenhum arquivo carregado
+        </div>
+
+        <div class="upload-loading" id="loadingMovHorizontal">
+            <div class="upload-loading-fill" id="loadingFillMovHorizontal"></div>
+        </div>
+
+    </div>
+
 </section>
 
 <!-- ================================= -->
@@ -173,7 +235,7 @@
     </div>
 
     <p class="scan-dica" id="scanDica">
-        Carregue os dois arquivos acima pra começar a bipar.
+        Carregue os quatro arquivos acima pra começar a bipar.
     </p>
 
 </section>
@@ -318,7 +380,7 @@
 
 <div id="areaImpressao" class="area-impressao"></div>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 
 </body>
 </html>

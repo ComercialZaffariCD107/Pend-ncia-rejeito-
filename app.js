@@ -8,8 +8,16 @@ let bancoMap = new Map();
 // pendentesMap: "código reduzido" (string) -> [ linhas pendentes ]
 let pendentesMap = new Map();
 
+// stageInMap: "código reduzido" (string) -> [ linhas com situação Pendente ]
+let stageInMap = new Map();
+
+// movHorizontalMap: "código reduzido" (string) -> [ linhas ainda na tela ]
+let movHorizontalMap = new Map();
+
 let bancoCarregado = false;
 let pendentesCarregado = false;
+let stageInCarregado = false;
+let movHorizontalCarregado = false;
 
 const contadores = {
     total: 0,
@@ -19,7 +27,8 @@ const contadores = {
 
 // paleteAtual: itens bipados desde a última vez que um palete foi
 // fechado. Cada item: { hora, codigoBipado, codigoReduzido, produto,
-// tipo, status, pendencias }
+// tipo, status, telas } — "telas" traz as pendências encontradas em
+// cada uma das 3 consultas: { velox:[], stageIn:[], movHorizontal:[] }
 let paleteAtual = {
     numero: 1,
     itens: []
@@ -45,6 +54,136 @@ function decodificarTexto(buffer){
     if(temBOM) texto = texto.slice(1);
 
     return texto;
+
+}
+
+// =====================================
+// CÓDIGO REDUZIDO — NORMALIZAÇÃO
+// =====================================
+// Cada tela traz o código de um jeito (Movimentação Horizontal usa
+// 0018158, Stage-in usa 18158...). Tira espaços e zeros à esquerda
+// pra todas as consultas falarem a mesma língua.
+
+function normalizarCodigo(valor){
+
+    return String(valor ?? "").trim().replace(/^0+(?=\d)/, "");
+
+}
+
+function esc(valor){
+
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+}
+
+// =====================================
+// AS 3 TELAS CONSULTADAS A CADA BIPAGEM
+// =====================================
+// Para cada tela: como aparece na interface (nome/curto/icone) e
+// quais colunas mostrar no detalhe (tela) e no romaneio (impressão).
+
+const TELAS = [
+
+    {
+        chave: "velox",
+        nome: "Consulta de Pendentes (Velox)",
+        curto: "Velox",
+        icone: "📋",
+        colunas: [
+            { titulo:"Etiqueta (DUN)", valor:(p)=> p.etiqueta },
+            { titulo:"Descrição",      valor:(p, item)=> item.descricao },
+            { titulo:"Posição",        valor:(p)=> p.posicao || "—" },
+            { titulo:"Qtd",            valor:(p)=> p.quantidadeTotal },
+            { titulo:"Integrado em",   valor:(p)=> p.hIntegrado }
+        ],
+        impressao: [
+            { titulo:"Descrição",    valor:(p, it)=> it.produto },
+            { titulo:"Posição",      valor:(p)=> p.posicao || "—", classe:"col-posicao" },
+            { titulo:"Qtd",          valor:(p)=> p.quantidadeTotal, classe:"col-qtd" },
+            { titulo:"Integrado em", valor:(p)=> p.hIntegrado }
+        ]
+    },
+
+    {
+        chave: "stageIn",
+        limiteImpressao: 5,
+        nome: "Consulta Stage-in",
+        curto: "Stage-in",
+        icone: "📥",
+        colunas: [
+            { titulo:"Stage-in",        valor:(p)=> p.stageIn || "—" },
+            { titulo:"Origem",          valor:(p)=> p.origem || "—" },
+            { titulo:"Nº Carga",        valor:(p)=> p.carga || "—" },
+            { titulo:"Etiqueta",        valor:(p)=> p.etiqueta || "—" },
+            { titulo:"Qtd",             valor:(p)=> p.quantidade },
+            { titulo:"Endereço Apanha", valor:(p)=> p.enderecoApanha || "—" },
+            { titulo:"Movimentado em",  valor:(p)=> p.dataHora }
+        ],
+        impressao: [
+            { titulo:"Stage-in",       valor:(p)=> p.stageIn || "—" },
+            { titulo:"Origem",         valor:(p)=> p.origem || "—" },
+            { titulo:"Carga",          valor:(p)=> p.carga || "—" },
+            { titulo:"Qtd",            valor:(p)=> p.quantidade, classe:"col-qtd" },
+            { titulo:"Movimentado em", valor:(p)=> p.dataHora }
+        ]
+    },
+
+    {
+        chave: "movHorizontal",
+        limiteImpressao: 5,
+        nome: "Movimentação Horizontal",
+        curto: "Mov. Horizontal",
+        icone: "↔️",
+        colunas: [
+            { titulo:"Origem",        valor:(p)=> p.origem || "—" },
+            { titulo:"Destino",       valor:(p)=> p.destino || "—" },
+            { titulo:"Prioridade",    valor:(p)=> p.prioridade || "—" },
+            { titulo:"Tempo geração", valor:(p)=> p.tempo || "—" }
+        ],
+        impressao: [
+            { titulo:"Origem",        valor:(p)=> p.origem || "—" },
+            { titulo:"Destino",       valor:(p)=> p.destino || "—" },
+            { titulo:"Tempo geração", valor:(p)=> p.tempo || "—" }
+        ]
+    }
+
+];
+
+// Consulta o código reduzido nas 3 telas de uma vez.
+function consultarTelas(codigoReduzido){
+
+    const chave = normalizarCodigo(codigoReduzido);
+
+    return {
+        velox:         pendentesMap.get(chave) || [],
+        stageIn:       stageInMap.get(chave) || [],
+        movHorizontal: movHorizontalMap.get(chave) || []
+    };
+
+}
+
+// Telas onde o item está pendente (na ordem de TELAS).
+function telasComPendencia(telas){
+
+    return TELAS.filter(t => (telas[t.chave] || []).length > 0);
+
+}
+
+// Tags da interface: uma por tela pendente, ou "OK".
+function htmlTagsResultado(status, telas){
+
+    if(status !== "pendente"){
+        return `<span class="tag tag-ok">✅ OK</span>`;
+    }
+
+    return `<div class="tags-telas">` +
+        telasComPendencia(telas).map(t =>
+            `<span class="tag tag-pendente">⛔ ${t.curto} (${telas[t.chave].length})</span>`
+        ).join("") +
+        `</div>`;
 
 }
 
@@ -281,11 +420,13 @@ async function carregarPendentes(file){
                 codigoProduto
             };
 
-            if(!pendentesMap.has(codigoProduto)){
-                pendentesMap.set(codigoProduto, []);
+            const chaveProduto = normalizarCodigo(codigoProduto);
+
+            if(!pendentesMap.has(chaveProduto)){
+                pendentesMap.set(chaveProduto, []);
             }
 
-            pendentesMap.get(codigoProduto).push(registro);
+            pendentesMap.get(chaveProduto).push(registro);
 
         }
 
@@ -321,21 +462,270 @@ async function carregarPendentes(file){
 }
 
 // =====================================
+// LEITURA — CONSULTA STAGE-IN
+// =====================================
+// TXT/CSV separado por ";" (ISO-8859-1), uma linha por volume:
+// DTAHORMOVIMENTACAO;ORIGEM;NROCARGA;DESCRICAO;ETIQUETA;DEPOSITANTE;
+// CODIGO;DESCRICAO;EMBALAGEM;QUANTIDADE;ETIQUETA_VOLUME;STAGEIN;
+// SITUACAO;ENDERECO_APANHA
+//
+// Regra: só entra quem está com SITUACAO = "Pendente".
+// Chave de busca: CODIGO (código reduzido).
+
+function semAcentoMinusculo(texto){
+
+    return String(texto ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+
+}
+
+function parseStageIn(linhas){
+
+    if(linhas.length < 2) throw new Error("Arquivo sem linhas de dados.");
+
+    const cab = linhas[0].split(";").map(c => semAcentoMinusculo(c));
+
+    const achar = (...nomes) => cab.findIndex(c => nomes.includes(c));
+
+    const iCodigo = achar("codigo");
+    const iSituacao = achar("situacao");
+
+    if(iCodigo < 0){
+        throw new Error('Coluna "CODIGO" não encontrada. Confira se é o arquivo da Consulta Stage-in.');
+    }
+
+    // o arquivo tem duas colunas "DESCRICAO": a 1ª é da carga, a
+    // última é a do produto
+    const iDescProduto = cab.lastIndexOf("descricao");
+
+    const iDataHora = achar("dtahormovimentacao");
+    const iOrigem = achar("origem");
+    const iCarga = achar("nrocarga");
+    const iEtiqueta = achar("etiqueta");
+    const iEmbalagem = achar("embalagem");
+    const iQuantidade = achar("quantidade");
+    const iStageIn = achar("stagein");
+    const iEndApanha = achar("endereco_apanha");
+
+    const pega = (campos, i) => i >= 0 ? (campos[i] ?? "").trim() : "";
+
+    const mapa = new Map();
+    let total = 0;
+
+    for(let i = 1; i < linhas.length; i++){
+
+        const campos = linhas[i].split(";");
+
+        const codigo = normalizarCodigo(campos[iCodigo]);
+
+        if(!codigo) continue;
+
+        // só "Pendente" (se a coluna existir)
+        if(iSituacao >= 0 && semAcentoMinusculo(campos[iSituacao]) !== "pendente") continue;
+
+        const registro = {
+            dataHora: pega(campos, iDataHora),
+            origem: pega(campos, iOrigem),
+            carga: pega(campos, iCarga),
+            etiqueta: pega(campos, iEtiqueta),
+            descricao: pega(campos, iDescProduto),
+            embalagem: pega(campos, iEmbalagem),
+            quantidade: pega(campos, iQuantidade),
+            stageIn: pega(campos, iStageIn),
+            enderecoApanha: pega(campos, iEndApanha)
+        };
+
+        if(!mapa.has(codigo)) mapa.set(codigo, []);
+
+        mapa.get(codigo).push(registro);
+
+        total++;
+
+    }
+
+    return { mapa, total, rotulo: "pendências" };
+
+}
+
+// =====================================
+// LEITURA — MOVIMENTAÇÃO HORIZONTAL
+// =====================================
+// TXT/CSV separado por ";":
+// P;ORIGEM;DESTINO;PRODUTO;TEMPO_GERACAO
+//
+// PRODUTO vem como "0018158 - CHOCOTTONE BAUDUCCO 450G MOUSSE-".
+// Não existe coluna de situação: estar na tela = ainda pendente.
+// Chave de busca: número antes do " - " (sem zeros à esquerda).
+
+function parseMovHorizontal(linhas){
+
+    if(linhas.length < 2) throw new Error("Arquivo sem linhas de dados.");
+
+    const cab = linhas[0].split(";").map(c => semAcentoMinusculo(c));
+
+    const achar = (...nomes) => cab.findIndex(c => nomes.includes(c));
+
+    const iProduto = achar("produto");
+
+    if(iProduto < 0){
+        throw new Error('Coluna "PRODUTO" não encontrada. Confira se é o arquivo da Movimentação Horizontal.');
+    }
+
+    const iPrioridade = achar("p");
+    const iOrigem = achar("origem");
+    const iDestino = achar("destino");
+    const iTempo = achar("tempo_geracao");
+
+    const pega = (campos, i) => i >= 0 ? (campos[i] ?? "").trim() : "";
+
+    const mapa = new Map();
+    let total = 0;
+
+    for(let i = 1; i < linhas.length; i++){
+
+        const campos = linhas[i].split(";");
+
+        const produtoBruto = (campos[iProduto] ?? "").trim();
+
+        const m = produtoBruto.match(/^(\d+)\s*-\s*(.*)$/);
+
+        if(!m) continue;
+
+        const codigo = normalizarCodigo(m[1]);
+
+        const registro = {
+            prioridade: pega(campos, iPrioridade),
+            origem: pega(campos, iOrigem),
+            destino: pega(campos, iDestino),
+            descricao: m[2].trim(),
+            tempo: pega(campos, iTempo)
+        };
+
+        if(!mapa.has(codigo)) mapa.set(codigo, []);
+
+        mapa.get(codigo).push(registro);
+
+        total++;
+
+    }
+
+    return { mapa, total, rotulo: "movimentações" };
+
+}
+
+// Carregador genérico dos dois arquivos de texto novos (mesma
+// experiência dos cards antigos: barra de progresso + status).
+
+async function carregarArquivoConsulta(file, cfg){
+
+    if(!file) return;
+
+    const loadingBox = document.getElementById(cfg.loadingId);
+    const loadingFill = document.getElementById(cfg.fillId);
+    const statusEl = document.getElementById(cfg.statusId);
+    const card = document.getElementById(cfg.inputId).closest(".upload-card");
+
+    loadingBox.style.display = "block";
+    loadingFill.style.width = "20%";
+
+    try{
+
+        const buffer = await file.arrayBuffer();
+
+        const texto = decodificarTexto(buffer);
+
+        loadingFill.style.width = "50%";
+
+        const linhas = texto
+            .split(/\r\n|\n/)
+            .filter(l => l.trim().length > 0);
+
+        const resultado = cfg.parse(linhas);
+
+        cfg.aplicar(resultado.mapa);
+
+        loadingFill.style.width = "100%";
+
+        statusEl.innerHTML =
+            `✅ ${esc(file.name)} — ${resultado.total.toLocaleString("pt-BR")} ${resultado.rotulo}, ${resultado.mapa.size.toLocaleString("pt-BR")} produtos`;
+
+        card.classList.add("pronto");
+
+        verificarProntoParaBipar();
+
+    }catch(err){
+
+        console.error(err);
+
+        statusEl.textContent = "❌ " + (err.message || "Erro ao ler o arquivo. Confira o formato.");
+
+        card.classList.remove("pronto");
+
+    }
+
+    setTimeout(()=>{ loadingBox.style.display = "none"; }, 400);
+
+}
+
+function carregarStageIn(file){
+
+    return carregarArquivoConsulta(file, {
+        inputId: "arquivoStageIn",
+        loadingId: "loadingStageIn",
+        fillId: "loadingFillStageIn",
+        statusId: "statusStageIn",
+        parse: parseStageIn,
+        aplicar: (mapa)=>{ stageInMap = mapa; stageInCarregado = true; }
+    });
+
+}
+
+function carregarMovHorizontal(file){
+
+    return carregarArquivoConsulta(file, {
+        inputId: "arquivoMovHorizontal",
+        loadingId: "loadingMovHorizontal",
+        fillId: "loadingFillMovHorizontal",
+        statusId: "statusMovHorizontal",
+        parse: parseMovHorizontal,
+        aplicar: (mapa)=>{ movHorizontalMap = mapa; movHorizontalCarregado = true; }
+    });
+
+}
+
+// =====================================
 // LIBERA O CAMPO DE BIPAGEM
 // =====================================
+// Só libera com os 4 arquivos carregados — senão uma tela
+// esquecida viraria um falso "sem pendência".
 
 function verificarProntoParaBipar(){
 
     const input = document.getElementById("inputScan");
     const dica = document.getElementById("scanDica");
 
-    if(bancoCarregado && pendentesCarregado){
+    const faltando = [];
+
+    if(!bancoCarregado) faltando.push("Banco de Dados");
+    if(!pendentesCarregado) faltando.push("Consulta de Pendentes");
+    if(!stageInCarregado) faltando.push("Consulta Stage-in");
+    if(!movHorizontalCarregado) faltando.push("Movimentação Horizontal");
+
+    if(faltando.length === 0){
 
         input.disabled = false;
         input.focus();
 
         dica.textContent =
-            "Pronto — bipe o código de barras da caixa (DUN ou EAN).";
+            "Pronto — bipe o código de barras da caixa (DUN ou EAN). Consulta Velox, Stage-in e Movimentação Horizontal.";
+
+    }else{
+
+        dica.textContent =
+            "Falta carregar: " + faltando.join(", ") + ".";
 
     }
 
@@ -519,56 +909,30 @@ function processarLeitura(codigoBipado){
 
     const hora = agora.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
 
-    let registro;
+    // consulta as 3 telas de uma vez: Velox, Stage-in e Mov. Horizontal
+    const telas = consultarTelas(item.codigo);
 
-    {
+    const pendente = telasComPendencia(telas).length > 0;
 
-        const pendencias = pendentesMap.get(item.codigo) || [];
+    const registro = {
+        hora,
+        codigoBipado,
+        codigoReduzido: item.codigo,
+        produto: item.descricao,
+        tipo: item.tipo,
+        status: pendente ? "pendente" : "ok",
+        telas
+    };
 
-        if(pendencias.length > 0){
+    if(pendente) contadores.pendente++;
+    else contadores.ok++;
 
-            contadores.pendente++;
-
-            registro = {
-                hora,
-                codigoBipado,
-                codigoReduzido: item.codigo,
-                produto: item.descricao,
-                tipo: item.tipo,
-                status: "pendente",
-                pendencias
-            };
-
-            mostrarResultado({
-                status: "pendente",
-                codigoBipado,
-                item,
-                pendencias
-            });
-
-        }else{
-
-            contadores.ok++;
-
-            registro = {
-                hora,
-                codigoBipado,
-                codigoReduzido: item.codigo,
-                produto: item.descricao,
-                tipo: item.tipo,
-                status: "ok",
-                pendencias: []
-            };
-
-            mostrarResultado({
-                status: "ok",
-                codigoBipado,
-                item
-            });
-
-        }
-
-    }
+    mostrarResultado({
+        status: registro.status,
+        codigoBipado,
+        item,
+        telas
+    });
 
     registrarHistorico(registro);
 
@@ -582,9 +946,26 @@ function processarLeitura(codigoBipado){
 // RENDER — RESULTADO
 // =====================================
 
-function mostrarResultado({ status, codigoBipado, item, pendencias }){
+function mostrarResultado({ status, codigoBipado, item, telas }){
 
     const card = document.getElementById("resultadoCard");
+
+    const pendentes = telasComPendencia(telas);
+
+    // resumo das 3 telas — sempre aparece, pra deixar claro que as
+    // três foram consultadas e onde está (ou não) a pendência
+    const chips = TELAS.map(t => {
+
+        const qtd = telas[t.chave].length;
+
+        return `
+            <div class="tela-chip ${qtd > 0 ? "tela-chip-pendente" : "tela-chip-livre"}">
+                <span class="tela-chip-nome">${t.icone} ${t.nome}</span>
+                <strong>${qtd > 0 ? `⛔ Pendente (${qtd})` : "✅ Sem pendência"}</strong>
+            </div>
+        `;
+
+    }).join("");
 
     if(status === "ok"){
 
@@ -592,11 +973,12 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
             <div class="resultado-conteudo status-ok">
                 <div class="resultado-topo">
                     <div class="resultado-produto">
-                        <h2>${item.descricao}</h2>
-                        <p>Código reduzido: ${item.codigo} • Bipado: ${codigoBipado} (${item.tipo})</p>
+                        <h2>${esc(item.descricao)}</h2>
+                        <p>Código reduzido: ${esc(item.codigo)} • Bipado: ${esc(codigoBipado)} (${esc(item.tipo)})</p>
                     </div>
                     <div class="resultado-selo">✅ Sem Pendência</div>
                 </div>
+                <div class="telas-resumo">${chips}</div>
             </div>
         `;
 
@@ -606,41 +988,48 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
 
     // status === "pendente"
 
-    const linhas = pendencias.map(p => `
-        <tr>
-            <td>${p.etiqueta}</td>
-            <td>${item.descricao}</td>
-            <td>${p.posicao || "—"}</td>
-            <td>${p.quantidadeTotal}</td>
-            <td>${p.hIntegrado}</td>
-        </tr>
-    `).join("");
+    const blocos = pendentes.map(t => {
+
+        const lista = telas[t.chave];
+
+        const cabecalho = t.colunas
+            .map(c => `<th>${c.titulo}</th>`)
+            .join("");
+
+        const linhas = lista.map(p => `
+            <tr>
+                ${t.colunas.map(c => `<td>${esc(c.valor(p, item))}</td>`).join("")}
+            </tr>
+        `).join("");
+
+        return `
+            <div class="tela-bloco">
+                <h4 class="tela-titulo">
+                    ${t.icone} ${t.nome}
+                    <span class="tela-contagem">${lista.length}</span>
+                </h4>
+                <div class="resultado-detalhe">
+                    <table>
+                        <thead><tr>${cabecalho}</tr></thead>
+                        <tbody>${linhas}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+    }).join("");
 
     card.innerHTML = `
         <div class="resultado-conteudo status-pendente">
             <div class="resultado-topo">
                 <div class="resultado-produto">
-                    <h2>${item.descricao}</h2>
-                    <p>Código reduzido: ${item.codigo} • Bipado: ${codigoBipado} (${item.tipo})</p>
+                    <h2>${esc(item.descricao)}</h2>
+                    <p>Código reduzido: ${esc(item.codigo)} • Bipado: ${esc(codigoBipado)} (${esc(item.tipo)})</p>
                 </div>
-                <div class="resultado-selo">⛔ ${pendencias.length} Pendente${pendencias.length > 1 ? "s" : ""}</div>
+                <div class="resultado-selo">⛔ Pendente em ${pendentes.map(t => t.curto).join(" + ")}</div>
             </div>
-            <div class="resultado-detalhe">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Etiqueta (DUN)</th>
-                            <th>Descrição</th>
-                            <th>Posição</th>
-                            <th>Qtd</th>
-                            <th>Integrado em</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${linhas}
-                    </tbody>
-                </table>
-            </div>
+            <div class="telas-resumo">${chips}</div>
+            ${blocos}
         </div>
     `;
 
@@ -650,19 +1039,12 @@ function mostrarResultado({ status, codigoBipado, item, pendencias }){
 // RENDER — HISTÓRICO
 // =====================================
 
-function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, status, pendencias }){
+function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, status, telas }){
 
     const tbody = document.getElementById("historicoBody");
 
     const vazio = document.getElementById("historicoVazio");
     if(vazio) vazio.remove();
-
-    const qtd = pendencias ? pendencias.length : 0;
-
-    const tagInfo = {
-        "pendente": { classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` },
-        "ok": { classe:"tag-ok", texto:"✅ OK" }
-    }[status];
 
     const tr = document.createElement("tr");
 
@@ -670,8 +1052,8 @@ function registrarHistorico({ hora, codigoBipado, codigoReduzido, produto, statu
         <td>${hora}</td>
         <td>${codigoBipado}</td>
         <td>${codigoReduzido}</td>
-        <td>${produto}</td>
-        <td><span class="tag ${tagInfo.classe}">${tagInfo.texto}</span></td>
+        <td>${esc(produto)}</td>
+        <td>${htmlTagsResultado(status, telas)}</td>
     `;
 
     tbody.prepend(tr);
@@ -719,26 +1101,15 @@ function renderizarPalete(){
 
     }
 
-    const tagInfo = {
-        "pendente": (qtd) => ({ classe:"tag-pendente", texto:`⛔ ${qtd} Pendente${qtd > 1 ? "s" : ""}` }),
-        "ok": () => ({ classe:"tag-ok", texto:"✅ OK" })
-    };
-
-    tbody.innerHTML = paleteAtual.itens.map((it, idx) => {
-
-        const info = tagInfo[it.status](it.pendencias.length);
-
-        return `
-            <tr>
-                <td>${idx + 1}</td>
-                <td>${it.hora}</td>
-                <td>${it.codigoBipado}</td>
-                <td>${it.produto}</td>
-                <td><span class="tag ${info.classe}">${info.texto}</span></td>
-            </tr>
-        `;
-
-    }).join("");
+    tbody.innerHTML = paleteAtual.itens.map((it, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td>${it.hora}</td>
+            <td>${it.codigoBipado}</td>
+            <td>${esc(it.produto)}</td>
+            <td>${htmlTagsResultado(it.status, it.telas)}</td>
+        </tr>
+    `).join("");
 
 }
 
@@ -798,62 +1169,81 @@ function gerarImpressaoPalete(){
 
     const dataHora = new Date().toLocaleString("pt-BR");
 
-    const statusInfo = {
-        "pendente": (qtd) => ({ classe:"imp-pendente", borda:"imp-borda-pendente", texto:`⛔ PENDENTE (${qtd})` }),
-        "ok": () => ({ classe:"imp-ok", borda:"imp-borda-ok", texto:"✅ SEM PENDÊNCIA" })
-    };
-
     let totalPendencias = 0;
 
     const blocos = paleteAtual.itens.map((it, idx) => {
 
-        const info = statusInfo[it.status](it.pendencias.length);
+        const pendentes = telasComPendencia(it.telas);
 
-        totalPendencias += it.pendencias.length;
+        const ehPendente = it.status === "pendente" && pendentes.length > 0;
 
-        let subtabela = "";
+        const borda = ehPendente ? "imp-borda-pendente" : "imp-borda-ok";
 
-        if(it.status === "pendente" && it.pendencias.length > 0){
+        // uma pílula por tela pendente (ou "sem pendência")
+        const pilulas = ehPendente
+            ? pendentes.map(t =>
+                `<span class="imp-status imp-pendente">⛔ ${t.curto.toUpperCase()} (${it.telas[t.chave].length})</span>`
+              ).join("")
+            : `<span class="imp-status imp-ok">✅ SEM PENDÊNCIA</span>`;
 
-            const linhasPendencia = it.pendencias.map(p => `
+        // uma subtabela por tela pendente
+        const subtabelas = pendentes.map(t => {
+
+            const lista = it.telas[t.chave];
+
+            totalPendencias += lista.length;
+
+            // Stage-in / Mov. Horizontal podem ter dezenas de linhas por
+            // produto — no papel mostra só as primeiras e resume o resto
+            const exibidas = t.limiteImpressao
+                ? lista.slice(0, t.limiteImpressao)
+                : lista;
+
+            const ocultas = lista.length - exibidas.length;
+
+            const cabecalho = t.impressao
+                .map(c => `<th class="${c.classe || ""}">${c.titulo}</th>`)
+                .join("");
+
+            let linhas = exibidas.map(p => `
                 <tr>
-                    <td>${it.produto}</td>
-                    <td class="col-posicao">${p.posicao || "—"}</td>
-                    <td class="col-qtd">${p.quantidadeTotal}</td>
-                    <td>${p.hIntegrado}</td>
+                    ${t.impressao.map(c => `<td class="${c.classe || ""}">${esc(c.valor(p, it))}</td>`).join("")}
                 </tr>
             `).join("");
 
-            subtabela = `
-                <table class="impressao-subtabela">
-                    <thead>
-                        <tr>
-                            <th>Descrição</th>
-                            <th>Posição</th>
-                            <th class="col-qtd">Qtd</th>
-                            <th>Integrado em</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${linhasPendencia}
-                    </tbody>
+            if(ocultas > 0){
+
+                linhas += `
+                <tr>
+                    <td colspan="${t.impressao.length}" class="imp-mais">
+                        + ${ocultas} ${ocultas > 1 ? "linhas" : "linha"} não impressa${ocultas > 1 ? "s" : ""} (total: ${lista.length}) — ver na tela
+                    </td>
+                </tr>`;
+
+            }
+
+            return `
+                <div class="impressao-tela-titulo">${t.icone} ${t.nome}</div>
+                <table class="impressao-subtabela ${t.chave === "velox" ? "" : "sub-simples"}">
+                    <thead><tr>${cabecalho}</tr></thead>
+                    <tbody>${linhas}</tbody>
                 </table>
             `;
 
-        }
+        }).join("");
 
         return `
-            <div class="impressao-item ${info.borda}">
+            <div class="impressao-item ${borda}">
 
                 <div class="impressao-item-topo">
                     <span class="impressao-item-num">${idx + 1}</span>
                     <span class="impressao-item-hora">${it.hora}</span>
                     <span class="impressao-item-codigo">${it.codigoBipado}<br><small>(${it.codigoReduzido})</small></span>
-                    <span class="impressao-item-produto">${it.produto}</span>
-                    <span class="imp-status ${info.classe}">${info.texto}</span>
+                    <span class="impressao-item-produto">${esc(it.produto)}</span>
+                    <span class="imp-status-grupo">${pilulas}</span>
                 </div>
 
-                ${subtabela}
+                ${subtabelas}
 
             </div>
         `;
@@ -874,7 +1264,7 @@ function gerarImpressaoPalete(){
         </div>
         ${blocos}
         <div class="impressao-rodape">
-            Consulta de Pendentes — Sorter • CD-107 • ${totalPendencias} pendência(s) neste palete
+            Consulta de Pendentes — Sorter • CD-107 • ${totalPendencias} pendência(s) neste palete (Velox + Stage-in + Mov. Horizontal)
         </div>
     `;
 
