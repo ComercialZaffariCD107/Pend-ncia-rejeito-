@@ -14,6 +14,10 @@ let stageInMap = new Map();
 // movHorizontalMap: "código reduzido" (string) -> [ linhas ainda na tela ]
 let movHorizontalMap = new Map();
 
+// bancoPorCodigo: "código reduzido" normalizado -> item do Banco de Dados
+// (usado quando o operador digita o código reduzido em vez do código de barras)
+let bancoPorCodigo = new Map();
+
 let bancoCarregado = false;
 let pendentesCarregado = false;
 let stageInCarregado = false;
@@ -303,6 +307,16 @@ async function carregarBanco(file){
         }
 
         loadingFill.style.width = "100%";
+
+        bancoPorCodigo = new Map();
+
+        for(const it of bancoMap.values()){
+
+            const chave = normalizarCodigo(it.codigo);
+
+            if(chave && !bancoPorCodigo.has(chave)) bancoPorCodigo.set(chave, it);
+
+        }
 
         bancoCarregado = true;
 
@@ -868,21 +882,79 @@ function mostrarResultadoDuplicado(item, codigoBipado, itemExistente){
 
 }
 
+// Código reduzido digitado/bipado direto (ex.: 18158 — o mesmo número
+// que aparece na tela do Velox). Código de barras tem 8+ dígitos; código
+// reduzido tem até 7, então não há risco de confundir um com o outro.
+// Procura primeiro no Banco de Dados; se o produto não estiver lá, mas
+// existir em alguma das 3 telas, monta o item com a descrição da tela.
+
+function buscarPorCodigoReduzido(digitos){
+
+    if(digitos.length > 7) return null;
+
+    const chave = normalizarCodigo(digitos);
+
+    if(!chave) return null;
+
+    const doBanco = bancoPorCodigo.get(chave);
+
+    if(doBanco) return { ...doBanco, tipo: "Cód. reduzido" };
+
+    const telas = consultarTelas(chave);
+
+    const primeiro =
+        telas.velox[0] || telas.stageIn[0] || telas.movHorizontal[0];
+
+    if(!primeiro) return null;
+
+    return {
+        codigo: chave,
+        descricao: primeiro.produto || primeiro.descricao || "(sem descrição)",
+        embalagem: "",
+        tipo: "Cód. reduzido"
+    };
+
+}
+
+// Mensagem rápida embaixo do campo (some sozinha) — não grava nada,
+// só avisa que a leitura foi ignorada e por quê.
+
+let dicaTimer = null;
+
+function avisarNaoEncontrado(codigo){
+
+    const dica = document.getElementById("scanDica");
+
+    const textoOriginal =
+        "Pronto — bipe o código de barras da caixa (DUN ou EAN). Consulta Velox, Stage-in e Movimentação Horizontal.";
+
+    dica.textContent =
+        `❔ "${codigo}" não encontrado — bipe o código de barras (DUN/EAN) ou digite um código reduzido que exista no Banco de Dados ou nas consultas.`;
+
+    if(dicaTimer) clearTimeout(dicaTimer);
+
+    dicaTimer = setTimeout(()=>{ dica.textContent = textoOriginal; }, 4000);
+
+}
+
 function processarLeitura(codigoBipado){
 
     codigoBipado = codigoBipado.replace(/\D/g, "").trim();
 
     if(!codigoBipado) return;
 
-    const item = bancoMap.get(codigoBipado);
+    // 1º código de barras (DUN/EAN); 2º código reduzido digitado
+    const item = bancoMap.get(codigoBipado) || buscarPorCodigoReduzido(codigoBipado);
 
-    // Código não cadastrado no Banco de Dados: ignora por completo —
-    // não conta no KPI, não entra no histórico nem no palete. Só um
-    // sinal visual rápido no campo pra avisar que não achou nada.
+    // Código não encontrado: ignora por completo — não conta no KPI,
+    // não entra no histórico nem no palete. Só um sinal visual rápido
+    // no campo + aviso temporário embaixo dele.
 
     if(!item){
 
         sinalizarCodigoNaoCadastrado();
+
+        avisarNaoEncontrado(codigoBipado);
 
         return;
 
