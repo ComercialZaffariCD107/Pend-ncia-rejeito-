@@ -1,4 +1,4 @@
-# Consulta de Pendentes — Sorter (CD-107)
+# Consulta Rejeito — Sorter (CD-107)
 
 Ferramenta estática para consultar, em tempo real, se um item está com
 volumes pendentes no Sorter — bipando o código de barras (DUN ou EAN)
